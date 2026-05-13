@@ -48,8 +48,8 @@ export async function runBriefing(): Promise<BriefingResult> {
 
     for (let i = 0; i < holdings.length; i++) {
       const h = holdings[i];
-      // Throttle between holdings to stay under per-minute rate limits.
-      if (i > 0) await new Promise((r) => setTimeout(r, 2500));
+      // Light throttle between holdings to stay polite to rate limits.
+      if (i > 0) await new Promise((r) => setTimeout(r, 800));
       const quote = await getQuote(h.ticker);
       const summary = await summarizeTicker({
         ticker: h.ticker,
