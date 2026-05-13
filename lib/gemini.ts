@@ -7,6 +7,12 @@ type SummarizeInput = {
   dayChangePct: number | null;
 };
 
+const MODEL = "gemini-2.5-flash";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 export async function summarizeTicker(
   input: SummarizeInput,
 ): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
@@ -34,20 +40,29 @@ Constraints:
 - Do not include the ticker price or % change (the user already sees that)
 - If the past 24h have no notable news, say so plainly`;
 
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-      config: {
-        temperature: 0.3,
-        tools: [{ googleSearch: {} }],
-      },
-    });
-    const text = response.text?.trim();
-    if (!text) return { ok: false, error: "empty response" };
-    return { ok: true, text };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  const ai = new GoogleGenAI({ apiKey });
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: prompt,
+        config: {
+          temperature: 0.3,
+          tools: [{ googleSearch: {} }],
+        },
+      });
+      const text = response.text?.trim();
+      if (!text) return { ok: false, error: "empty response" };
+      return { ok: true, text };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (attempt === 0 && msg.includes("429")) {
+        await sleep(8000);
+        continue;
+      }
+      return { ok: false, error: msg };
+    }
   }
+  return { ok: false, error: "exhausted retries" };
 }
