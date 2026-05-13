@@ -76,7 +76,9 @@ export async function runBriefing(): Promise<BriefingResult> {
       }
       const positionLine = positionParts.length > 0 ? positionParts.join(" · ") : null;
 
-      const summaryText = summary.ok ? summary.text : "(briefing unavailable today)";
+      const summaryText = summary.ok
+        ? summary.text
+        : `(briefing error: ${summary.error.slice(0, 250)})`;
 
       const section = [priceLine, positionLine, summaryText].filter(Boolean).join("\n");
       sections.push(section);

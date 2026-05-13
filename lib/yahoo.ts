@@ -23,9 +23,9 @@ type ChartResponse = {
   };
 };
 
-export async function getQuote(ticker: string): Promise<Quote | null> {
+async function tryFetch(symbol: string): Promise<Quote | null> {
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`;
     const res = await fetch(url, {
       headers: { "user-agent": "Mozilla/5.0 (compatible; PortfolioBriefingBot/1.0)" },
     });
@@ -43,7 +43,7 @@ export async function getQuote(ticker: string): Promise<Quote | null> {
     const dayChangePct =
       prevClose != null && prevClose !== 0 ? ((price - prevClose) / prevClose) * 100 : null;
     return {
-      ticker: meta.symbol?.toUpperCase() ?? ticker.toUpperCase(),
+      ticker: meta.symbol?.toUpperCase() ?? symbol.toUpperCase(),
       name: meta.shortName ?? meta.longName ?? null,
       price,
       prevClose,
@@ -53,4 +53,25 @@ export async function getQuote(ticker: string): Promise<Quote | null> {
   } catch {
     return null;
   }
+}
+
+// Yahoo uses ticker.TO for TSX and ticker-CLASS.TO for unit/preferred shares
+// (e.g. user enters AP.UN, Yahoo wants AP-UN.TO; VFV → VFV.TO).
+function tsxVariants(ticker: string): string[] {
+  if (/\.(TO|V|NE|CN)$/i.test(ticker)) return [];
+  const dotReplaced = ticker.replace(/\./g, "-");
+  const variants = new Set<string>();
+  variants.add(`${ticker}.TO`);
+  if (dotReplaced !== ticker) variants.add(`${dotReplaced}.TO`);
+  return [...variants];
+}
+
+export async function getQuote(ticker: string): Promise<Quote | null> {
+  const direct = await tryFetch(ticker);
+  if (direct) return direct;
+  for (const variant of tsxVariants(ticker)) {
+    const r = await tryFetch(variant);
+    if (r) return r;
+  }
+  return null;
 }
