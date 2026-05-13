@@ -48,8 +48,10 @@ export async function runBriefing(): Promise<BriefingResult> {
 
     for (let i = 0; i < holdings.length; i++) {
       const h = holdings[i];
-      // Light throttle between holdings to stay polite to rate limits.
-      if (i > 0) await new Promise((r) => setTimeout(r, 800));
+      // Pace Gemini grounded calls to stay under the free-tier per-minute
+      // rate limit (~3-5 RPM observed). Tomorrow's cron has a 15-min budget,
+      // so this only matters for manual testing via the sync HTTP endpoint.
+      if (i > 0) await new Promise((r) => setTimeout(r, 4000));
       const quote = await getQuote(h.ticker);
       const summary = await summarizeTicker({
         ticker: h.ticker,
