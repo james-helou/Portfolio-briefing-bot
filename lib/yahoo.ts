@@ -1,5 +1,3 @@
-import YahooFinance from "yahoo-finance2";
-
 export type Quote = {
   ticker: string;
   name: string | null;
@@ -9,23 +7,48 @@ export type Quote = {
   currency: string;
 };
 
-const yf = new YahooFinance();
+type ChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        chartPreviousClose?: number;
+        previousClose?: number;
+        currency?: string;
+        symbol?: string;
+        shortName?: string;
+        longName?: string;
+      };
+    }>;
+  };
+};
 
 export async function getQuote(ticker: string): Promise<Quote | null> {
   try {
-    const q = await yf.quote(ticker);
-    if (!q || typeof q.regularMarketPrice !== "number") return null;
-    const price = q.regularMarketPrice;
-    const prevClose = typeof q.regularMarketPreviousClose === "number" ? q.regularMarketPreviousClose : null;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`;
+    const res = await fetch(url, {
+      headers: { "user-agent": "Mozilla/5.0 (compatible; PortfolioBriefingBot/1.0)" },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as ChartResponse;
+    const meta = json.chart?.result?.[0]?.meta;
+    if (!meta || typeof meta.regularMarketPrice !== "number") return null;
+    const price = meta.regularMarketPrice;
+    const prevClose =
+      typeof meta.chartPreviousClose === "number"
+        ? meta.chartPreviousClose
+        : typeof meta.previousClose === "number"
+          ? meta.previousClose
+          : null;
     const dayChangePct =
       prevClose != null && prevClose !== 0 ? ((price - prevClose) / prevClose) * 100 : null;
     return {
-      ticker: (q.symbol ?? ticker).toUpperCase(),
-      name: q.shortName ?? q.longName ?? null,
+      ticker: meta.symbol?.toUpperCase() ?? ticker.toUpperCase(),
+      name: meta.shortName ?? meta.longName ?? null,
       price,
       prevClose,
       dayChangePct,
-      currency: q.currency ?? "USD",
+      currency: meta.currency ?? "USD",
     };
   } catch {
     return null;

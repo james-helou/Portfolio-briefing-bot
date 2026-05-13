@@ -8,4 +8,4 @@
 [functions]
   node_bundler = "esbuild"
   directory = "netlify/functions"
-  external_node_modules = ["postgres", "yahoo-finance2"]
+  external_node_modules = ["postgres"]
